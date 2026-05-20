@@ -37,7 +37,7 @@ class LogisticRegressionBaseline:
         self.pipeline: Pipeline | None = None
         self.feature_names_: list[str] | None = None
 
-    def fit(self, X: pd.DataFrame, y: np.ndarray) -> "LogisticRegressionBaseline":
+    def fit(self, X: pd.DataFrame, y: np.ndarray) -> LogisticRegressionBaseline:
         self.feature_names_ = list(X.columns)
         self.pipeline = Pipeline([
             ("imputer", SimpleImputer(strategy="median")),
