@@ -21,6 +21,7 @@ from sklearn.metrics import (
 @dataclass
 class MetricWithCI:
     """A point estimate with bootstrap 95% confidence interval."""
+
     point: float
     ci_lower: float
     ci_upper: float
@@ -109,12 +110,15 @@ def evaluate(
     assert set(np.unique(y_true)).issubset({0, 1}), "labels must be 0/1"
 
     return EvaluationResults(
-        auroc=_bootstrap_metric(y_true, y_pred_proba, roc_auc_score,
-                                n_bootstrap=n_bootstrap, seed=seed),
-        auprc=_bootstrap_metric(y_true, y_pred_proba, average_precision_score,
-                                n_bootstrap=n_bootstrap, seed=seed + 1),
-        brier=_bootstrap_metric(y_true, y_pred_proba, brier_score_loss,
-                                n_bootstrap=n_bootstrap, seed=seed + 2),
+        auroc=_bootstrap_metric(
+            y_true, y_pred_proba, roc_auc_score, n_bootstrap=n_bootstrap, seed=seed
+        ),
+        auprc=_bootstrap_metric(
+            y_true, y_pred_proba, average_precision_score, n_bootstrap=n_bootstrap, seed=seed + 1
+        ),
+        brier=_bootstrap_metric(
+            y_true, y_pred_proba, brier_score_loss, n_bootstrap=n_bootstrap, seed=seed + 2
+        ),
         n_samples=int(len(y_true)),
         n_positive=int(y_true.sum()),
     )

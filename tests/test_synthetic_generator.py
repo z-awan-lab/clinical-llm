@@ -74,5 +74,6 @@ def test_different_seeds_give_different_data():
     p1, _ = generate(GeneratorConfig(n_patients=50, seed=1))
     p2, _ = generate(GeneratorConfig(n_patients=50, seed=2))
     # Outcomes should differ across seeds (with very high probability).
-    assert not np.array_equal(p1["in_hospital_mortality"].values,
-                              p2["in_hospital_mortality"].values)
+    assert not np.array_equal(
+        p1["in_hospital_mortality"].values, p2["in_hospital_mortality"].values
+    )

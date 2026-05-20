@@ -62,22 +62,22 @@ def main() -> None:
 
     print("Extracting features...")
     train_events = filter_events_by_patients(events, train_pts)
-    val_events   = filter_events_by_patients(events, val_pts)
-    test_events  = filter_events_by_patients(events, test_pts)
+    val_events = filter_events_by_patients(events, val_pts)
+    test_events = filter_events_by_patients(events, test_pts)
 
     X_train = extract_features(train_pts, train_events)
-    X_val   = extract_features(val_pts,   val_events)
-    X_test  = extract_features(test_pts,  test_events)
+    X_val = extract_features(val_pts, val_events)
+    X_test = extract_features(test_pts, test_events)
 
     label_col = get_label_column()
     y_train = train_pts.set_index("patient_id").loc[X_train["patient_id"], label_col].values
-    y_val   = val_pts  .set_index("patient_id").loc[X_val  ["patient_id"], label_col].values
-    y_test  = test_pts .set_index("patient_id").loc[X_test ["patient_id"], label_col].values
+    y_val = val_pts.set_index("patient_id").loc[X_val["patient_id"], label_col].values
+    y_test = test_pts.set_index("patient_id").loc[X_test["patient_id"], label_col].values
 
     feature_cols = [c for c in feature_columns(X_train) if c != "patient_id"]
     X_train_feat = X_train[feature_cols]
-    X_val_feat   = X_val[feature_cols]
-    X_test_feat  = X_test[feature_cols]
+    X_val_feat = X_val[feature_cols]
+    X_test_feat = X_test[feature_cols]
 
     print(f"Training logistic regression on {len(feature_cols)} features...")
     model = LogisticRegressionBaseline(LogRegConfig(seed=args.seed))

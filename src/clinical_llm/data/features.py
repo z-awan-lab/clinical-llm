@@ -28,12 +28,12 @@ def _summarise(series: pd.Series) -> dict[str, float]:
         # No measurements — return NaN for all stats; imputation handled later.
         return {stat: np.nan for stat in SUMMARY_STATS}
     return {
-        "mean":  float(np.mean(values)),
-        "min":   float(np.min(values)),
-        "max":   float(np.max(values)),
-        "std":   float(np.std(values)) if len(values) > 1 else 0.0,
+        "mean": float(np.mean(values)),
+        "min": float(np.min(values)),
+        "max": float(np.max(values)),
+        "std": float(np.std(values)) if len(values) > 1 else 0.0,
         "first": float(values[0]),
-        "last":  float(values[-1]),
+        "last": float(values[-1]),
         "count": float(len(values)),
     }
 

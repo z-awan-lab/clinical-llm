@@ -21,15 +21,15 @@ import pandas as pd
 # These are NOT clinically validated — they exist to give the pipeline
 # realistically-shaped numeric data to chew on.
 VITALS = {
-    "heart_rate":      {"healthy": (70,  15), "deteriorating": (110, 20), "unit": "bpm"},
-    "sbp":             {"healthy": (120, 12), "deteriorating": (95,  15), "unit": "mmHg"},
-    "dbp":             {"healthy": (75,   8), "deteriorating": (55,  10), "unit": "mmHg"},
-    "respiratory_rate":{"healthy": (16,   3), "deteriorating": (24,   5), "unit": "breaths/min"},
-    "spo2":            {"healthy": (97,   2), "deteriorating": (90,   4), "unit": "%"},
-    "temperature":     {"healthy": (36.8, 0.4),"deteriorating": (38.5, 0.8),"unit": "C"},
-    "glucose":         {"healthy": (110, 20), "deteriorating": (180, 50), "unit": "mg/dL"},
-    "lactate":         {"healthy": (1.2, 0.3),"deteriorating": (3.5, 1.2),"unit": "mmol/L"},
-    "creatinine":      {"healthy": (0.9, 0.2),"deteriorating": (2.0, 0.7),"unit": "mg/dL"},
+    "heart_rate": {"healthy": (70, 15), "deteriorating": (110, 20), "unit": "bpm"},
+    "sbp": {"healthy": (120, 12), "deteriorating": (95, 15), "unit": "mmHg"},
+    "dbp": {"healthy": (75, 8), "deteriorating": (55, 10), "unit": "mmHg"},
+    "respiratory_rate": {"healthy": (16, 3), "deteriorating": (24, 5), "unit": "breaths/min"},
+    "spo2": {"healthy": (97, 2), "deteriorating": (90, 4), "unit": "%"},
+    "temperature": {"healthy": (36.8, 0.4), "deteriorating": (38.5, 0.8), "unit": "C"},
+    "glucose": {"healthy": (110, 20), "deteriorating": (180, 50), "unit": "mg/dL"},
+    "lactate": {"healthy": (1.2, 0.3), "deteriorating": (3.5, 1.2), "unit": "mmol/L"},
+    "creatinine": {"healthy": (0.9, 0.2), "deteriorating": (2.0, 0.7), "unit": "mg/dL"},
 }
 
 
@@ -66,7 +66,7 @@ def _generate_vital_trajectory(
     # Linear interpolation of mean and SD across the stay, with noise.
     fractions = np.linspace(0, deterioration_fraction, n_timesteps)
     means = healthy_mean + fractions * (sick_mean - healthy_mean)
-    sds   = healthy_sd   + fractions * (sick_sd   - healthy_sd)
+    sds = healthy_sd + fractions * (sick_sd - healthy_sd)
     return rng.normal(loc=means, scale=sds)
 
 
@@ -98,16 +98,18 @@ def _generate_one_patient(
         # Introduce missingness — real clinical data is sparse.
         mask = rng.random(n_timesteps) < config.missingness_rate
         values = np.where(mask, np.nan, values)
-        for ts, val in zip(timestamps, values):
+        for ts, val in zip(timestamps, values, strict=False):
             if np.isnan(val):
                 continue
-            rows.append({
-                "patient_id": patient_id,
-                "charttime": ts,
-                "vital_name": vital_name,
-                "value": round(float(val), 2),
-                "unit": VITALS[vital_name]["unit"],
-            })
+            rows.append(
+                {
+                    "patient_id": patient_id,
+                    "charttime": ts,
+                    "vital_name": vital_name,
+                    "value": round(float(val), 2),
+                    "unit": VITALS[vital_name]["unit"],
+                }
+            )
 
     events = pd.DataFrame(rows)
 

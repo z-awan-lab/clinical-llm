@@ -44,8 +44,9 @@ def test_ci_lower_le_point_le_upper(random_predictions):
     y_true, y_pred = random_predictions
     results = evaluate(y_true, y_pred, n_bootstrap=200)
     for metric in [results.auroc, results.auprc, results.brier]:
-        assert metric.ci_lower <= metric.point <= metric.ci_upper, \
-            f"CI not bracketing point estimate: {metric}"
+        assert (
+            metric.ci_lower <= metric.point <= metric.ci_upper
+        ), f"CI not bracketing point estimate: {metric}"
 
 
 def test_n_samples_correct(random_predictions):

@@ -39,16 +39,21 @@ class LogisticRegressionBaseline:
 
     def fit(self, X: pd.DataFrame, y: np.ndarray) -> LogisticRegressionBaseline:
         self.feature_names_ = list(X.columns)
-        self.pipeline = Pipeline([
-            ("imputer", SimpleImputer(strategy="median")),
-            ("scaler",  StandardScaler()),
-            ("clf",     LogisticRegression(
-                C=self.config.C,
-                max_iter=self.config.max_iter,
-                class_weight=self.config.class_weight,
-                random_state=self.config.seed,
-            )),
-        ])
+        self.pipeline = Pipeline(
+            [
+                ("imputer", SimpleImputer(strategy="median")),
+                ("scaler", StandardScaler()),
+                (
+                    "clf",
+                    LogisticRegression(
+                        C=self.config.C,
+                        max_iter=self.config.max_iter,
+                        class_weight=self.config.class_weight,
+                        random_state=self.config.seed,
+                    ),
+                ),
+            ]
+        )
         self.pipeline.fit(X.values, y)
         return self
 
