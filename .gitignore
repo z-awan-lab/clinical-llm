@@ -1,0 +1,91 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+.python-version
+
+# Testing
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+coverage.xml
+*.cover
+
+# Linting / type checking
+.mypy_cache/
+.ruff_cache/
+.dmypy.json
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# ML / experiment outputs
+outputs/
+runs/
+checkpoints/
+wandb/
+mlruns/
+*.ckpt
+*.pt
+*.pth
+*.safetensors
+
+# Data — NEVER commit clinical data
+data/raw/
+data/processed/
+data/mimic*/
+data/*.csv
+data/*.parquet
+data/*.feather
+data/*.h5
+!data/README.md
+!data/synthetic_sample.csv
+
+# Logs
+*.log
+logs/
+
+# Environment / secrets
+.env
+.env.local
+secrets.yaml
+credentials.json
+
+# OS
+Thumbs.db

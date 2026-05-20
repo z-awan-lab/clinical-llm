@@ -1,0 +1,24 @@
+# Logistic regression baseline configuration.
+# Used by: python -m clinical_llm.training.train --config configs/baseline_logreg.yaml
+
+model:
+  name: logistic_regression
+  C: 1.0
+  max_iter: 1000
+  class_weight: balanced
+
+data:
+  source: synthetic        # or 'mimic_iv'
+  data_dir: data/synthetic
+  observation_hours: 48
+
+split:
+  test_size: 0.15
+  val_size: 0.15
+  stratify_on: in_hospital_mortality
+
+evaluation:
+  n_bootstrap: 1000
+
+seed: 42
+out_dir: outputs/baseline_logreg
