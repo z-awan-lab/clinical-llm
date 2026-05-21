@@ -28,7 +28,7 @@ still in progress.
 | ------------------------------ | --------------- | -------------- | -------------- |
 | Logistic Regression            | ✅ implemented  | _pending data_ | _pending data_ |
 | XGBoost                        | ✅ implemented  | _pending data_ | _pending data_ |
-| LSTM (raw sequences)           | 🚧 next         | _pending data_ | _pending data_ |
+| LSTM (raw sequences)           | ✅ implemented  | _pending data_ | _pending data_ |
 | Llama-3.2-3B + LoRA            | 🚧 next         | _pending data_ | _pending data_ |
 
 Bootstrap 95% CIs and calibration are reported in [`docs/results.md`](docs/results.md).
@@ -47,9 +47,10 @@ pip install -e ".[dev]"
 # Generate synthetic data (no credentials needed)
 python -m clinical_llm.data.synthetic_generator --n-patients 2000
 
-# Run either baseline end-to-end
+# Run any baseline end-to-end
 python -m clinical_llm.training.train --model logreg
 python -m clinical_llm.training.train --model xgboost
+python -m clinical_llm.training.train --model lstm
 ```
 
 See [`docs/getting_started.md`](docs/getting_started.md) for the full walkthrough including MIMIC-IV setup.

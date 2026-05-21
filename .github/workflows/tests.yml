@@ -42,3 +42,4 @@ jobs:
           python -m clinical_llm.data.synthetic_generator --n-patients 200 --out-dir data/synthetic
           python -m clinical_llm.training.train --model logreg --data-dir data/synthetic --out-dir outputs/ci_logreg
           python -m clinical_llm.training.train --model xgboost --data-dir data/synthetic --out-dir outputs/ci_xgboost
+          python -m clinical_llm.training.train --model lstm --data-dir data/synthetic --out-dir outputs/ci_lstm

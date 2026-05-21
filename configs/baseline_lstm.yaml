@@ -1,0 +1,33 @@
+# LSTM baseline configuration.
+# Used by: python -m clinical_llm.training.train --model lstm
+
+model:
+  name: lstm
+  hidden_size: 64
+  num_layers: 1
+  dropout: 0.2
+  bidirectional: false
+  epochs: 25
+  batch_size: 64
+  learning_rate: 0.001
+  weight_decay: 1.0e-5
+  early_stopping_patience: 5
+
+sequence:
+  observation_hours: 48
+  bucket_hours: 1
+
+data:
+  source: synthetic
+  data_dir: data/synthetic
+
+split:
+  test_size: 0.15
+  val_size: 0.15
+  stratify_on: in_hospital_mortality
+
+evaluation:
+  n_bootstrap: 1000
+
+seed: 42
+out_dir: outputs/baseline_lstm
