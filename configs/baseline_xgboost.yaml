@@ -1,0 +1,29 @@
+# XGBoost baseline configuration.
+# Used by: python -m clinical_llm.training.train --model xgboost
+
+model:
+  name: xgboost
+  n_estimators: 300
+  max_depth: 5
+  learning_rate: 0.05
+  subsample: 0.8
+  colsample_bytree: 0.8
+  min_child_weight: 1.0
+  reg_lambda: 1.0
+  early_stopping_rounds: 30
+
+data:
+  source: synthetic        # or 'mimic_iv'
+  data_dir: data/synthetic
+  observation_hours: 48
+
+split:
+  test_size: 0.15
+  val_size: 0.15
+  stratify_on: in_hospital_mortality
+
+evaluation:
+  n_bootstrap: 1000
+
+seed: 42
+out_dir: outputs/baseline_xgboost

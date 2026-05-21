@@ -18,16 +18,23 @@ Large language models have shown promise for clinical prediction tasks, but most
 - **Open evaluation** — standard MIMIC benchmark splits, with bootstrap confidence intervals and calibration analysis
 - **Honest baselines** — logistic regression, XGBoost, and LSTM, so the LLM has to earn its complexity
 
-## Results (work in progress)
+## Results
 
-| Model                          | AUROC          | AUPRC          | Brier ↓        |
-| ------------------------------ | -------------- | -------------- | -------------- |
-| Logistic Regression            | _coming soon_  | _coming soon_  | _coming soon_  |
-| XGBoost                        | _coming soon_  | _coming soon_  | _coming soon_  |
-| LSTM (raw sequences)           | _coming soon_  | _coming soon_  | _coming soon_  |
-| Llama-3.2-3B + LoRA            | _coming soon_  | _coming soon_  | _coming soon_  |
+Real-data results on MIMIC-IV will be added once PhysioNet credentialing is
+approved. The table below tracks which models are implemented and which are
+still in progress.
 
-Results table will be updated as experiments complete. Bootstrap 95% CIs reported in [`docs/results.md`](docs/results.md).
+| Model                          | Status          | MIMIC-IV AUROC | MIMIC-IV AUPRC |
+| ------------------------------ | --------------- | -------------- | -------------- |
+| Logistic Regression            | ✅ implemented  | _pending data_ | _pending data_ |
+| XGBoost                        | ✅ implemented  | _pending data_ | _pending data_ |
+| LSTM (raw sequences)           | 🚧 next         | _pending data_ | _pending data_ |
+| Llama-3.2-3B + LoRA            | 🚧 next         | _pending data_ | _pending data_ |
+
+Bootstrap 95% CIs and calibration are reported in [`docs/results.md`](docs/results.md).
+A short note on **synthetic-data sanity-check numbers** also lives there — these
+verify the pipeline runs end-to-end before MIMIC access is granted, and are
+deliberately not reported as research results.
 
 ## Quick start
 
@@ -37,11 +44,12 @@ git clone https://github.com/z-awan-lab/clinical-llm.git
 cd clinical-llm
 pip install -e ".[dev]"
 
-# Run the full pipeline on synthetic data (no credentials needed)
-python -m clinical_llm.training.train --config configs/baseline_logreg.yaml
+# Generate synthetic data (no credentials needed)
+python -m clinical_llm.data.synthetic_generator --n-patients 2000
 
-# Evaluate
-python -m clinical_llm.evaluation.evaluate --run-dir outputs/baseline_logreg
+# Run either baseline end-to-end
+python -m clinical_llm.training.train --model logreg
+python -m clinical_llm.training.train --model xgboost
 ```
 
 See [`docs/getting_started.md`](docs/getting_started.md) for the full walkthrough including MIMIC-IV setup.

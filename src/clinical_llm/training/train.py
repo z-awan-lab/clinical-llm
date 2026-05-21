@@ -1,15 +1,18 @@
-"""End-to-end training script for the logistic regression baseline.
+"""End-to-end training script for tabular baselines.
 
-This is the entry point that ties the pipeline together:
-    1. Load (or generate) data
-    2. Extract features
-    3. Split patient-wise
-    4. Fit the model
-    5. Evaluate on val and test with bootstrap CIs
-    6. Save artifacts to disk
+This is the unified entry point for all baselines that consume the
+flat feature matrix (logistic regression and XGBoost). It:
+
+    1. Loads (or generates) data
+    2. Extracts features
+    3. Splits patient-wise
+    4. Fits the chosen model
+    5. Evaluates on val and test with bootstrap CIs
+    6. Saves artifacts (results JSON + per-model importances)
 
 Run:
-    python -m clinical_llm.training.train --data-dir data/synthetic
+    python -m clinical_llm.training.train --model logreg
+    python -m clinical_llm.training.train --model xgboost
 """
 
 from __future__ import annotations
@@ -31,7 +34,14 @@ from clinical_llm.data.splits import (
     make_splits,
 )
 from clinical_llm.evaluation.metrics import evaluate
-from clinical_llm.models.baselines import LogisticRegressionBaseline, LogRegConfig
+from clinical_llm.models.baselines import (
+    LogisticRegressionBaseline,
+    LogRegConfig,
+    XGBoostBaseline,
+    XGBoostConfig,
+)
+
+MODELS = {"logreg", "xgboost"}
 
 
 def load_data(data_dir: Path) -> tuple[pd.DataFrame, pd.DataFrame]:
@@ -41,14 +51,49 @@ def load_data(data_dir: Path) -> tuple[pd.DataFrame, pd.DataFrame]:
     return patients, events
 
 
+def _default_out_dir(model: str) -> Path:
+    return Path(f"outputs/baseline_{model}")
+
+
+def _train_logreg(X_train, y_train, X_val, y_val, seed: int):
+    model = LogisticRegressionBaseline(LogRegConfig(seed=seed))
+    model.fit(X_train, y_train)
+    return model
+
+
+def _train_xgboost(X_train, y_train, X_val, y_val, seed: int):
+    model = XGBoostBaseline(XGBoostConfig(seed=seed))
+    # XGBoost uses the validation set for early stopping.
+    model.fit(X_train, y_train, X_val=X_val, y_val=y_val)
+    return model
+
+
+TRAINERS = {
+    "logreg": _train_logreg,
+    "xgboost": _train_xgboost,
+}
+
+
+def _save_importances(model, out_dir: Path, model_name: str) -> None:
+    """Save the model's feature importances or coefficients."""
+    if model_name == "logreg":
+        model.coefficients.to_csv(out_dir / "coefficients.csv", header=["coefficient"])
+    elif model_name == "xgboost":
+        model.feature_importances.to_csv(out_dir / "feature_importances.csv", header=["gain"])
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--model", choices=sorted(MODELS), default="logreg")
     parser.add_argument("--data-dir", type=Path, default=Path("data/synthetic"))
-    parser.add_argument("--out-dir", type=Path, default=Path("outputs/baseline_logreg"))
+    parser.add_argument(
+        "--out-dir", type=Path, default=None, help="defaults to outputs/baseline_<model>"
+    )
     parser.add_argument("--seed", type=int, default=42)
     args = parser.parse_args()
 
-    args.out_dir.mkdir(parents=True, exist_ok=True)
+    out_dir = args.out_dir or _default_out_dir(args.model)
+    out_dir.mkdir(parents=True, exist_ok=True)
 
     print("Loading data...")
     patients, events = load_data(args.data_dir)
@@ -79,9 +124,9 @@ def main() -> None:
     X_val_feat = X_val[feature_cols]
     X_test_feat = X_test[feature_cols]
 
-    print(f"Training logistic regression on {len(feature_cols)} features...")
-    model = LogisticRegressionBaseline(LogRegConfig(seed=args.seed))
-    model.fit(X_train_feat, y_train)
+    print(f"Training {args.model} on {len(feature_cols)} features...")
+    trainer = TRAINERS[args.model]
+    model = trainer(X_train_feat, y_train, X_val_feat, y_val, args.seed)
 
     print("\nValidation set:")
     val_results = evaluate(y_val, model.predict_proba(X_val_feat), seed=args.seed)
@@ -93,16 +138,16 @@ def main() -> None:
 
     # Persist artifacts.
     results_payload = {
-        "model": "logistic_regression",
+        "model": args.model,
         "seed": args.seed,
         "n_features": len(feature_cols),
         "validation": val_results.to_dict(),
         "test": test_results.to_dict(),
     }
-    (args.out_dir / "results.json").write_text(json.dumps(results_payload, indent=2))
-    model.coefficients.to_csv(args.out_dir / "coefficients.csv", header=["coefficient"])
+    (out_dir / "results.json").write_text(json.dumps(results_payload, indent=2))
+    _save_importances(model, out_dir, args.model)
 
-    print(f"\nArtifacts saved to {args.out_dir}/")
+    print(f"\nArtifacts saved to {out_dir}/")
 
 
 if __name__ == "__main__":
