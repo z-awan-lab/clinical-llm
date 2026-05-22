@@ -1,7 +1,9 @@
 # Getting started
 
 This guide walks you through running the `clinical-llm` pipeline end-to-end —
-first on synthetic data (no credentials needed), then on real MIMIC-IV.
+first on synthetic data (no credentials), then on the publicly downloadable
+PhysioNet/CinC Challenge 2012 dataset (real ICU data, no credentialing),
+then on MIMIC-IV (credentialed) as an external validation cohort.
 
 ## 1. Install
 
@@ -21,22 +23,50 @@ Verify the install:
 pytest tests/ -v
 ```
 
-You should see 17 tests pass.
+You should see 51 tests pass (5 of those are skipped unless transformers
+and peft are installed via `pip install -e ".[llm]"`).
 
 ## 2. Run on synthetic data
 
-The synthetic generator produces data that mirrors MIMIC-IV's schema, so the
-same pipeline runs on either source. Generate a small cohort and train:
+The synthetic generator produces data that mirrors the project's standard
+schema, so the same pipeline runs on either source. Generate a small
+cohort and train:
 
 ```bash
 python -m clinical_llm.data.synthetic_generator --n-patients 1000
-python -m clinical_llm.training.train --data-dir data/synthetic
+python -m clinical_llm.training.train --model logreg --data-dir data/synthetic
 ```
 
 Outputs are saved to `outputs/baseline_logreg/`:
 
 - `results.json` — point estimates and bootstrap 95% CIs for AUROC, AUPRC, Brier.
 - `coefficients.csv` — logistic regression coefficients sorted by absolute magnitude.
+
+## 3. Run on real ICU data (PhysioNet 2012)
+
+The PhysioNet/CinC Challenge 2012 dataset is publicly downloadable with no
+credentialing or DUA. It contains 12,000 ICU patients across three subsets;
+sets A and B (8,000 patients) have public outcome labels and are what this
+project uses.
+
+```bash
+# Download (~25MB) and extract the raw files
+python -m clinical_llm.data.physionet2012_downloader
+
+# Convert to the project's standard patients.csv / events.csv schema
+python -m clinical_llm.data.physionet2012_loader
+
+# Train any baseline
+python -m clinical_llm.training.train --model logreg --data-dir data/physionet2012
+python -m clinical_llm.training.train --model xgboost --data-dir data/physionet2012
+python -m clinical_llm.training.train --model lstm --data-dir data/physionet2012
+```
+
+Cite the dataset as:
+
+> Silva I, Moody G, Scott DJ, Celi LA, Mark RG. Predicting in-hospital mortality
+> of ICU patients: The PhysioNet/Computing in Cardiology Challenge 2012.
+> Computing in Cardiology 2012; 39: 245-248.
 
 ## 3. Use real MIMIC-IV
 

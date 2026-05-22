@@ -14,22 +14,23 @@ An open-source pipeline for fine-tuning small open-weight language models on lon
 Large language models have shown promise for clinical prediction tasks, but most published work depends on private models, private data, or both. This repository provides a fully reproducible, open-stack alternative:
 
 - **Open models** — MedGemma 4B (medical-pretrained Gemma family) via Hugging Face, with LoRA parameter-efficient fine-tuning. The model identifier is configurable, so general-purpose alternatives such as Llama-3.2-3B can be swapped in.
-- **Open data** — MIMIC-IV (credentialed but public), with a synthetic data fallback so the pipeline runs without credentials
+- **Open data** — Two routes: the [PhysioNet/CinC Challenge 2012](https://physionet.org/content/challenge-2012/) dataset (publicly downloadable, no credentialing needed, 8,000 real ICU patients across sets A+B) for headline benchmarks, and MIMIC-IV (credentialed) for extended analysis. A synthetic data generator is also included so the pipeline runs end-to-end with neither.
 - **Open evaluation** — standard MIMIC benchmark splits, with bootstrap confidence intervals and calibration analysis
 - **Honest baselines** — logistic regression, XGBoost, and LSTM, so the LLM has to earn its complexity
 
 ## Results
 
-Real-data results on MIMIC-IV will be added once PhysioNet credentialing is
-approved. The table below tracks which models are implemented and which are
-still in progress.
+Real-data results below are on the **PhysioNet/CinC Challenge 2012** dataset
+(sets A and B combined, 8,000 ICU patients, fully public, no credentialing
+required). MIMIC-IV results will be added as an external validation cohort
+once PhysioNet credentialing approval lands.
 
-| Model                          | Status          | MIMIC-IV AUROC | MIMIC-IV AUPRC |
-| ------------------------------ | --------------- | -------------- | -------------- |
-| Logistic Regression            | ✅ implemented  | _pending data_ | _pending data_ |
-| XGBoost                        | ✅ implemented  | _pending data_ | _pending data_ |
-| LSTM (raw sequences)           | ✅ implemented  | _pending data_ | _pending data_ |
-| MedGemma 4B + LoRA             | ✅ implemented  | _pending data_ | _pending data_ |
+| Model                          | Status          | PhysioNet 2012 AUROC | PhysioNet 2012 AUPRC |
+| ------------------------------ | --------------- | -------------------- | -------------------- |
+| Logistic Regression            | ✅ implemented  | _running_            | _running_            |
+| XGBoost                        | ✅ implemented  | _running_            | _running_            |
+| LSTM (raw sequences)           | ✅ implemented  | _running_            | _running_            |
+| MedGemma 4B + LoRA             | ✅ implemented  | _running_            | _running_            |
 
 Bootstrap 95% CIs and calibration are reported in [`docs/results.md`](docs/results.md).
 A short note on **synthetic-data sanity-check numbers** also lives there — these
@@ -44,18 +45,23 @@ git clone https://github.com/z-awan-lab/clinical-llm.git
 cd clinical-llm
 pip install -e ".[dev]"
 
-# Generate synthetic data (no credentials needed)
+# OPTION 1 — quick start on synthetic data (no downloads needed)
 python -m clinical_llm.data.synthetic_generator --n-patients 2000
+python -m clinical_llm.training.train --model logreg --data-dir data/synthetic
+python -m clinical_llm.training.train --model xgboost --data-dir data/synthetic
+python -m clinical_llm.training.train --model lstm --data-dir data/synthetic
 
-# Run any baseline end-to-end
-python -m clinical_llm.training.train --model logreg
-python -m clinical_llm.training.train --model xgboost
-python -m clinical_llm.training.train --model lstm
+# OPTION 2 — real ICU data (PhysioNet 2012, publicly downloadable)
+python -m clinical_llm.data.physionet2012_downloader
+python -m clinical_llm.data.physionet2012_loader
+python -m clinical_llm.training.train --model logreg --data-dir data/physionet2012
+python -m clinical_llm.training.train --model xgboost --data-dir data/physionet2012
+python -m clinical_llm.training.train --model lstm --data-dir data/physionet2012
 
 # MedGemma 4B + LoRA (requires GPU and Hugging Face gated access)
 pip install -e ".[llm]"
 huggingface-cli login   # accept Gemma terms at https://huggingface.co/google/medgemma-4b-it
-python -m clinical_llm.training.train --model llm
+python -m clinical_llm.training.train --model llm --data-dir data/physionet2012
 ```
 
 See [`docs/getting_started.md`](docs/getting_started.md) for the full walkthrough including MIMIC-IV setup.
