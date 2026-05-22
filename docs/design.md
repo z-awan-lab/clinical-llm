@@ -84,6 +84,40 @@ require many more GPU hours. LoRA fine-tunes a small adapter, keeps the
 base model frozen, and is the modern standard for this size of task. It is
 also what every industry team uses, so it's a recruiter-relevant skill.
 
+## Why MedGemma 4B?
+
+We default to `google/medgemma-4b-it` rather than a general-purpose base
+model like Llama-3.2-3B because MedGemma is pretrained on a large
+medical corpus. For a clinical prediction task, this typically gives:
+
+  * Better sample efficiency — the tokeniser and pretraining have
+    already seen the long tail of clinical vocabulary.
+  * A more interesting comparison point — "did a medical LLM beat a
+    general LLM beat XGBoost?" is a richer story than just "did an LLM
+    beat XGBoost?"
+
+The model identifier is configurable via `--model-name`, so the same
+training pipeline can produce results for Llama-3.2-3B, Phi-3-mini, or
+any HF causal LM. The licence (Gemma terms of use) permits research and
+non-clinical-deployment use; this code is research/benchmarking only.
+
+## Why LoRA?
+
+Full fine-tuning of a 4B model on a small clinical cohort would overfit
+and require many more GPU hours. LoRA fine-tunes a small adapter, keeps
+the base model frozen, and is the modern standard for this size of task.
+It is also what every industry team uses, so it's a recruiter-relevant
+skill.
+
+## Why no LLM smoke test in CI?
+
+The CI runners on GitHub Actions are CPU-only and don't have the memory
+or time budget to load MedGemma 4B. We instead run the LLM module's
+structural tests (config validation, interface checks) in CI, and run
+the actual training on a GPU off-CI. This is the standard pattern for
+ML CI — fast structural checks always, heavy integration runs on
+dedicated infrastructure.
+
 ## Why no W&B / MLflow / Hydra?
 
 Configuration is intentionally light (YAML files in `configs/`) to keep the

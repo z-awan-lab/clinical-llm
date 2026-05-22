@@ -13,7 +13,7 @@ An open-source pipeline for fine-tuning small open-weight language models on lon
 
 Large language models have shown promise for clinical prediction tasks, but most published work depends on private models, private data, or both. This repository provides a fully reproducible, open-stack alternative:
 
-- **Open models** — Llama-3.2-3B and Phi-3-mini via Hugging Face
+- **Open models** — MedGemma 4B (medical-pretrained Gemma family) via Hugging Face, with LoRA parameter-efficient fine-tuning. The model identifier is configurable, so general-purpose alternatives such as Llama-3.2-3B can be swapped in.
 - **Open data** — MIMIC-IV (credentialed but public), with a synthetic data fallback so the pipeline runs without credentials
 - **Open evaluation** — standard MIMIC benchmark splits, with bootstrap confidence intervals and calibration analysis
 - **Honest baselines** — logistic regression, XGBoost, and LSTM, so the LLM has to earn its complexity
@@ -29,7 +29,7 @@ still in progress.
 | Logistic Regression            | ✅ implemented  | _pending data_ | _pending data_ |
 | XGBoost                        | ✅ implemented  | _pending data_ | _pending data_ |
 | LSTM (raw sequences)           | ✅ implemented  | _pending data_ | _pending data_ |
-| Llama-3.2-3B + LoRA            | 🚧 next         | _pending data_ | _pending data_ |
+| MedGemma 4B + LoRA             | ✅ implemented  | _pending data_ | _pending data_ |
 
 Bootstrap 95% CIs and calibration are reported in [`docs/results.md`](docs/results.md).
 A short note on **synthetic-data sanity-check numbers** also lives there — these
@@ -51,6 +51,11 @@ python -m clinical_llm.data.synthetic_generator --n-patients 2000
 python -m clinical_llm.training.train --model logreg
 python -m clinical_llm.training.train --model xgboost
 python -m clinical_llm.training.train --model lstm
+
+# MedGemma 4B + LoRA (requires GPU and Hugging Face gated access)
+pip install -e ".[llm]"
+huggingface-cli login   # accept Gemma terms at https://huggingface.co/google/medgemma-4b-it
+python -m clinical_llm.training.train --model llm
 ```
 
 See [`docs/getting_started.md`](docs/getting_started.md) for the full walkthrough including MIMIC-IV setup.

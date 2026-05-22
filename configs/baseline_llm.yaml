@@ -1,0 +1,57 @@
+# LLM (MedGemma 4B + LoRA) configuration.
+# Used by: python -m clinical_llm.training.train --model llm
+#
+# IMPORTANT: MedGemma is a Gemma-family model with gated access on
+# Hugging Face. Before running this:
+#   1. Visit https://huggingface.co/google/medgemma-4b-it and accept the
+#      Gemma terms of use.
+#   2. Run: huggingface-cli login   (or set HF_TOKEN environment variable).
+#
+# This config is intended for a single GPU with >=16GB VRAM (4-bit
+# quantisation enabled). For lower-VRAM environments, drop to a smaller
+# model by changing model_name.
+
+model:
+  name: llm
+  model_name: google/medgemma-4b-it
+
+  # Tokenisation
+  max_length: 2048
+
+  # LoRA
+  lora_r: 16
+  lora_alpha: 32
+  lora_dropout: 0.05
+  lora_target_modules: [q_proj, k_proj, v_proj, o_proj]
+
+  # Quantisation
+  use_4bit: true
+
+  # Training
+  epochs: 3
+  batch_size: 4
+  gradient_accumulation_steps: 4
+  learning_rate: 2.0e-4
+  weight_decay: 1.0e-3
+  early_stopping_patience: 2
+  warmup_ratio: 0.03
+
+  # Hardware
+  device_map: auto
+  dtype: bfloat16
+
+data:
+  source: synthetic        # or mimic_iv
+  data_dir: data/synthetic
+  observation_hours: 48
+
+split:
+  test_size: 0.15
+  val_size: 0.15
+  stratify_on: in_hospital_mortality
+
+evaluation:
+  n_bootstrap: 1000
+
+seed: 42
+out_dir: outputs/baseline_llm

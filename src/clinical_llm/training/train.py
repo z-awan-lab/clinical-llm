@@ -45,7 +45,8 @@ from clinical_llm.models.baselines import (
 
 TABULAR_MODELS = {"logreg", "xgboost"}
 SEQUENCE_MODELS = {"lstm"}
-ALL_MODELS = TABULAR_MODELS | SEQUENCE_MODELS
+LLM_MODELS = {"llm"}
+ALL_MODELS = TABULAR_MODELS | SEQUENCE_MODELS | LLM_MODELS
 
 
 def load_data(data_dir: Path) -> tuple[pd.DataFrame, pd.DataFrame]:
@@ -178,6 +179,61 @@ def _save_sequence_artifacts(model, out_dir: Path) -> None:
 
 
 # --------------------------------------------------------------------------- #
+# LLM path                                                                    #
+# --------------------------------------------------------------------------- #
+
+
+def _run_llm(args, train_pts, val_pts, test_pts, train_events, val_events, test_events):
+    """Tokenise prompts, fine-tune LLM with LoRA, evaluate."""
+    # Local imports so heavy dependencies aren't required for the other paths.
+    from clinical_llm.data.serialisation import (
+        SerialisationConfig,
+        build_prompts,
+    )
+    from clinical_llm.models.llm import LLMBaseline, LLMConfig
+
+    ser_cfg = SerialisationConfig(observation_hours=48)
+    label_col = get_label_column()
+
+    train_prompts = build_prompts(train_pts, train_events, ser_cfg)
+    val_prompts = build_prompts(val_pts, val_events, ser_cfg)
+    test_prompts = build_prompts(test_pts, test_events, ser_cfg)
+
+    train_labels = train_pts[label_col].astype(int).tolist()
+    val_labels = val_pts[label_col].astype(int).tolist()
+    test_labels = test_pts[label_col].astype(int).tolist()
+
+    print(
+        f"Built {len(train_prompts):,} train prompts, "
+        f"{len(val_prompts):,} val, {len(test_prompts):,} test."
+    )
+    print("Loading LLM and attaching LoRA adapters...")
+
+    llm_cfg = LLMConfig(seed=args.seed)
+    if args.model_name:
+        llm_cfg.model_name = args.model_name
+    if args.epochs:
+        llm_cfg.epochs = args.epochs
+
+    model = LLMBaseline(llm_cfg)
+    model.fit(train_prompts, train_labels, val_prompts, val_labels)
+
+    import numpy as np
+
+    val_probs = model.predict_proba(val_prompts)
+    test_probs = model.predict_proba(test_prompts)
+    val_results = evaluate(np.array(val_labels), val_probs, seed=args.seed)
+    test_results = evaluate(np.array(test_labels), test_probs, seed=args.seed)
+
+    return model, val_results, test_results, len(train_prompts[0].split())
+
+
+def _save_llm_artifacts(model, out_dir: Path) -> None:
+    """Save LoRA adapter and classification head."""
+    model.save(out_dir)
+
+
+# --------------------------------------------------------------------------- #
 # Entry point                                                                 #
 # --------------------------------------------------------------------------- #
 
@@ -190,6 +246,18 @@ def main() -> None:
         "--out-dir", type=Path, default=None, help="defaults to outputs/baseline_<model>"
     )
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument(
+        "--model-name",
+        type=str,
+        default=None,
+        help="HF model identifier when --model llm (default: google/medgemma-4b-it)",
+    )
+    parser.add_argument(
+        "--epochs",
+        type=int,
+        default=None,
+        help="Override training epochs (used by LLM and LSTM paths)",
+    )
     args = parser.parse_args()
 
     out_dir = args.out_dir or _default_out_dir(args.model)
@@ -214,11 +282,16 @@ def main() -> None:
             args, train_pts, val_pts, test_pts, train_events, val_events, test_events
         )
         _save_tabular_artifacts(model, out_dir, args.model)
-    else:
+    elif args.model in SEQUENCE_MODELS:
         model, val_results, test_results, n_feat = _run_lstm(
             args, train_pts, val_pts, test_pts, train_events, val_events, test_events
         )
         _save_sequence_artifacts(model, out_dir)
+    else:  # LLM
+        model, val_results, test_results, n_feat = _run_llm(
+            args, train_pts, val_pts, test_pts, train_events, val_events, test_events
+        )
+        _save_llm_artifacts(model, out_dir)
 
     print("\nValidation set:")
     print(val_results.summary())
