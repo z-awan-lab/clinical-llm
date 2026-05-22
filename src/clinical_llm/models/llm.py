@@ -103,7 +103,9 @@ class _PromptDataset(Dataset):
     def __getitem__(self, idx: int) -> dict[str, Any]:
         item = {
             "input_ids": torch.tensor(self.encoded["input_ids"][idx], dtype=torch.long),
-            "attention_mask": torch.tensor(self.encoded["attention_mask"][idx], dtype=torch.long),
+            "attention_mask": torch.tensor(
+                self.encoded["attention_mask"][idx], dtype=torch.long
+            ),
         }
         if self.labels is not None:
             item["label"] = torch.tensor(self.labels[idx], dtype=torch.float32)
@@ -165,8 +167,8 @@ class _LLMClassifier(nn.Module):
         )
         last_hidden = out.hidden_states[-1]
         pooled = self._last_token_hidden(last_hidden, attention_mask)
-        # Cast to head's dtype — base model may be bf16 / quantised.
-        pooled = pooled.to(self.head.weight.dtype)
+        # Match head's device and dtype — base may be on GPU in bf16/quantised.
+        pooled = pooled.to(device=self.head.weight.device, dtype=self.head.weight.dtype)
         return self.head(pooled).squeeze(-1)
 
 
@@ -228,8 +230,22 @@ class LLMBaseline:
         base = get_peft_model(base, lora_config)
         base.print_trainable_parameters()
 
-        hidden_size = base.config.hidden_size
-        return _LLMClassifier(base, hidden_size=hidden_size)
+        # Gemma 3 nests text params under `text_config`; older/flat configs put
+        # them at the top level. Probe both.
+        cfg = base.config
+        hidden_size = getattr(cfg, "hidden_size", None)
+        if hidden_size is None and hasattr(cfg, "text_config"):
+            hidden_size = cfg.text_config.hidden_size
+        if hidden_size is None:
+            raise ValueError(
+                f"Could not determine hidden_size from {type(cfg).__name__}"
+            )
+
+        classifier = _LLMClassifier(base, hidden_size=hidden_size)
+        # Place the classification head on the same device and dtype as the base.
+        device = next(base.parameters()).device
+        classifier.head = classifier.head.to(device=device, dtype=self._dtype)
+        return classifier
 
     # --------------------------------------------------------------- train
     def fit(
@@ -246,7 +262,9 @@ class LLMBaseline:
         train_ds = _PromptDataset(
             train_prompts, train_labels, self.tokenizer, self.config.max_length
         )
-        val_ds = _PromptDataset(val_prompts, val_labels, self.tokenizer, self.config.max_length)
+        val_ds = _PromptDataset(
+            val_prompts, val_labels, self.tokenizer, self.config.max_length
+        )
 
         collate = lambda b: _collate(b, self.tokenizer.pad_token_id)  # noqa: E731
         train_loader = DataLoader(
@@ -281,7 +299,8 @@ class LLMBaseline:
 
         n_steps = max(
             1,
-            (len(train_loader) // self.config.gradient_accumulation_steps) * self.config.epochs,
+            (len(train_loader) // self.config.gradient_accumulation_steps)
+            * self.config.epochs,
         )
         n_warmup = int(self.config.warmup_ratio * n_steps)
         scheduler = torch.optim.lr_scheduler.LambdaLR(
@@ -312,10 +331,13 @@ class LLMBaseline:
             val_loss = self._val_loss(val_loader, criterion)
             if val_loss < best_val - 1e-5:
                 best_val = val_loss
+                # Snapshot only the trainable parameters (LoRA adapters + head).
+                # Filtering on requires_grad avoids the multimodal vision-tower
+                # state-dict noise and is robust to PEFT key naming changes.
                 best_state = {
                     k: v.detach().cpu().clone()
-                    for k, v in self.model_.state_dict().items()
-                    if "lora" in k or k.startswith("head.")
+                    for k, v in self.model_.named_parameters()
+                    if v.requires_grad
                 }
                 patience_left = self.config.early_stopping_patience
             else:
@@ -324,11 +346,13 @@ class LLMBaseline:
                     break
 
         if best_state is not None:
-            # Restore best LoRA + head state.
-            current = self.model_.state_dict()
-            for k, v in best_state.items():
-                current[k] = v.to(current[k].device)
-            self.model_.load_state_dict(current)
+            # Restore best trainable-only weights in place.
+            with torch.no_grad():
+                for name, param in self.model_.named_parameters():
+                    if name in best_state:
+                        param.copy_(
+                            best_state[name].to(param.device, dtype=param.dtype)
+                        )
         return self
 
     @torch.no_grad()
@@ -361,7 +385,7 @@ class LLMBaseline:
             input_ids = batch["input_ids"].to(self.device_)
             attention_mask = batch["attention_mask"].to(self.device_)
             logits = self.model_(input_ids, attention_mask)
-            probs.append(torch.sigmoid(logits).cpu().numpy())
+            probs.append(torch.sigmoid(logits).float().cpu().numpy())
         return np.concatenate(probs, axis=0)
 
     def save(self, out_dir: Path) -> None:
