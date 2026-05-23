@@ -22,18 +22,33 @@ Large language models have shown promise for clinical prediction tasks, but most
 
 ## Results
 
-Benchmarks are run on the **PhysioNet/CinC Challenge 2012** Set A
-(approximately 4,000 ICU patients with publicly released outcome labels).
-Only Set A has publicly released outcomes — Sets B and C were withheld by
-PhysioNet for evaluation purposes. MIMIC-IV is supported as an optional
-external validation cohort for users with credentialed access.
+Benchmarks below are evaluated on the held-out test split (15% of patients)
+of **PhysioNet/CinC Challenge 2012 Set A** (approximately 4,000 ICU
+patients with publicly released outcome labels — Sets B and C were
+withheld by PhysioNet for evaluation purposes). All numbers are point
+estimates followed by 95% bootstrap confidence intervals computed with
+1,000 resamples and seed 42. Brier scores marked with ↓ — lower is better.
 
-| Model                          | Status          | PhysioNet 2012 AUROC | PhysioNet 2012 AUPRC |
-| ------------------------------ | --------------- | -------------------- | -------------------- |
-| Logistic Regression            | ✅ implemented  | _running_            | _running_            |
-| XGBoost                        | ✅ implemented  | _running_            | _running_            |
-| LSTM (raw sequences)           | ✅ implemented  | _running_            | _running_            |
-| MedGemma 4B + LoRA             | ✅ implemented  | _running_            | _running_            |
+| Model                          | AUROC                | AUPRC                | Brier ↓              |
+| ------------------------------ | -------------------- | -------------------- | -------------------- |
+| Logistic Regression            | 0.770 (0.722–0.817)  | 0.330 (0.254–0.432)  | 0.199 (0.185–0.215)  |
+| XGBoost                        | **0.782** (0.724–0.830) | **0.424** (0.332–0.528) | **0.157** (0.147–0.166) |
+| LSTM (raw sequences)           | 0.752 (0.693–0.807)  | 0.348 (0.267–0.466)  | 0.190 (0.179–0.200)  |
+| MedGemma 4B + LoRA             | _training_           | _training_           | _training_           |
+
+**Observations.** XGBoost leads on every metric, consistent with the
+well-known strength of gradient-boosted trees on aggregated clinical
+features. The LSTM underperforms the simpler tabular baselines — at this
+cohort size (~3,000 training patients with sparse measurements) the
+sequence model does not yet have enough data to outpace aggregated
+features. The headroom between logistic regression and XGBoost is modest
+(AUROC 0.770 → 0.782), suggesting a substantial fraction of the
+predictive signal in this dataset is linear; XGBoost's gain shows up more
+clearly on AUPRC and Brier, indicating better-calibrated probabilities
+for the minority (mortality) class.
+
+MIMIC-IV is supported as an optional external validation cohort for users
+with credentialed access.
 
 Bootstrap 95% CIs and calibration plots are reported in [`docs/results.md`](docs/results.md).
 
