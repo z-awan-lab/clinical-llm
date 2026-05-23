@@ -1,9 +1,9 @@
 # Getting started
 
 This guide walks you through running the `clinical-llm` pipeline end-to-end —
-first on synthetic data (no credentials), then on the publicly downloadable
-PhysioNet/CinC Challenge 2012 dataset (real ICU data, no credentialing),
-then on MIMIC-IV (credentialed) as an external validation cohort.
+first on synthetic data, then on the public PhysioNet/CinC Challenge 2012
+dataset, with an optional MIMIC-IV path for users who hold credentialed
+access.
 
 ## 1. Install
 
@@ -23,14 +23,14 @@ Verify the install:
 pytest tests/ -v
 ```
 
-You should see 51 tests pass (5 of those are skipped unless transformers
-and peft are installed via `pip install -e ".[llm]"`).
+You should see all tests pass (some LLM tests are skipped unless
+transformers and peft are installed via `pip install -e ".[llm]"`).
 
 ## 2. Run on synthetic data
 
-The synthetic generator produces data that mirrors the project's standard
-schema, so the same pipeline runs on either source. Generate a small
-cohort and train:
+The synthetic generator produces data in the project's standard schema,
+so the same pipeline runs on either source. Generate a small cohort
+and train:
 
 ```bash
 python -m clinical_llm.data.synthetic_generator --n-patients 1000
@@ -42,24 +42,33 @@ Outputs are saved to `outputs/baseline_logreg/`:
 - `results.json` — point estimates and bootstrap 95% CIs for AUROC, AUPRC, Brier.
 - `coefficients.csv` — logistic regression coefficients sorted by absolute magnitude.
 
+Synthetic-data metrics are deliberately easy and should not be read as
+research results — they verify the pipeline runs end-to-end.
+
 ## 3. Run on real ICU data (PhysioNet 2012)
 
-The PhysioNet/CinC Challenge 2012 dataset is publicly downloadable with no
-credentialing or DUA. It contains 12,000 ICU patients across three subsets;
-sets A and B (8,000 patients) have public outcome labels and are what this
-project uses.
+The PhysioNet/CinC Challenge 2012 dataset is publicly downloadable with
+no credentialing or DUA. The full release contained 12,000 ICU patients
+across three subsets, but only **Set A** (approximately 4,000 patients)
+has publicly released outcome labels — Sets B and C were withheld by
+PhysioNet for evaluation purposes. This project uses Set A.
 
 ```bash
-# Download (~25MB) and extract the raw files
+# Download (~3MB compressed) and extract Set A
 python -m clinical_llm.data.physionet2012_downloader
 
 # Convert to the project's standard patients.csv / events.csv schema
 python -m clinical_llm.data.physionet2012_loader
 
-# Train any baseline
+# Train any model
 python -m clinical_llm.training.train --model logreg --data-dir data/physionet2012
 python -m clinical_llm.training.train --model xgboost --data-dir data/physionet2012
 python -m clinical_llm.training.train --model lstm --data-dir data/physionet2012
+
+# MedGemma 4B + LoRA — requires a GPU and Hugging Face gated access
+pip install -e ".[llm]"
+huggingface-cli login   # accept Gemma terms at https://huggingface.co/google/medgemma-4b-it
+python -m clinical_llm.training.train --model llm --data-dir data/physionet2012
 ```
 
 Cite the dataset as:
@@ -68,51 +77,28 @@ Cite the dataset as:
 > of ICU patients: The PhysioNet/Computing in Cardiology Challenge 2012.
 > Computing in Cardiology 2012; 39: 245-248.
 
-## 3. Use real MIMIC-IV
+## 4. Optional: MIMIC-IV external validation
 
-### 3.1 Get credentialed
-
-MIMIC-IV requires PhysioNet credentialing. See the
-[official instructions](https://physionet.org/about/credentialing/). Briefly:
-
-1. Create a [PhysioNet](https://physionet.org) account.
-2. Complete the **"Data or Specimens Only Research"** CITI course (free) and
-   download the *completion report* (not the certificate).
-3. Submit a credentialing application listing a senior academic reference.
-4. Sign the MIMIC-IV Data Use Agreement once approved.
-
-Approval typically takes 3–14 days.
-
-### 3.2 Download MIMIC-IV
-
-Two routes:
-
-- **Direct download** from
-  [physionet.org/content/mimiciv](https://physionet.org/content/mimiciv/).
-  Largest tables compressed are around 60GB.
-- **Google Cloud BigQuery** — query MIMIC-IV without downloading. Recommended
-  for prototyping. See [PhysioNet's BigQuery guide](https://mimic.mit.edu/docs/gettingstarted/cloud/bigquery/).
-
-### 3.3 Convert MIMIC-IV to the expected schema
-
-The pipeline expects two CSVs:
+For users with [credentialed PhysioNet access](https://physionet.org/about/credentialing/),
+MIMIC-IV is supported as an external validation cohort. The pipeline
+expects MIMIC-IV converted to the project's standard schema:
 
 - `patients.csv` with columns: `patient_id, age, sex, in_hospital_mortality`
-- `events.csv`   with columns: `patient_id, charttime, vital_name, value, unit`
+- `events.csv` with columns: `patient_id, charttime, vital_name, value, unit`
 
-A converter script (`src/clinical_llm/data/mimic_loader.py`) is on the roadmap.
-For now, the synthetic schema documents the expected shape exactly.
+A dedicated MIMIC-IV loader is on the roadmap; the schema mirrors the
+PhysioNet 2012 loader's output exactly, so the conversion is mechanical.
 
-## 4. What's next
-
-Once the logistic regression baseline runs, the project roadmap is:
+## 5. Project roadmap
 
 - [x] Logistic regression baseline
-- [ ] XGBoost baseline
-- [ ] LSTM baseline on raw sequences
-- [ ] Llama-3.2-3B + LoRA fine-tuning
-- [ ] SHAP interpretability for the baselines
+- [x] XGBoost baseline
+- [x] LSTM baseline on raw sequences
+- [x] MedGemma 4B + LoRA fine-tuning
+- [x] PhysioNet 2012 loader
+- [ ] SHAP interpretability for baselines
 - [ ] Attention visualisation for the LLM
 - [ ] Streamlit demo
+- [ ] MIMIC-IV loader for external validation
 
-See [`docs/design.md`](design.md) for design rationale.
+See [`docs/design.md`](design.md) for the rationale behind each choice.
