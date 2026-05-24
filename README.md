@@ -22,35 +22,68 @@ Large language models have shown promise for clinical prediction tasks, but most
 
 ## Results
 
-Benchmarks below are evaluated on the held-out test split (15% of patients)
-of **PhysioNet/CinC Challenge 2012 Set A** (approximately 4,000 ICU
-patients with publicly released outcome labels — Sets B and C were
-withheld by PhysioNet for evaluation purposes). All numbers are point
-estimates followed by 95% bootstrap confidence intervals computed with
-1,000 resamples and seed 42. Brier scores marked with ↓ — lower is better.
+Benchmarks below are evaluated on the held-out test split (15% of patients,
+n = 600) of **PhysioNet/CinC Challenge 2012 Set A** (approximately 4,000
+ICU patients with publicly released outcome labels — Sets B and C were
+withheld by PhysioNet for evaluation purposes). Point estimates are
+followed by 95% bootstrap confidence intervals (1,000 resamples, seed 42).
+Brier ↓ and ECE ↓ mean lower is better.
 
-| Model                          | AUROC                | AUPRC                | Brier ↓              |
-| ------------------------------ | -------------------- | -------------------- | -------------------- |
-| Logistic Regression            | 0.770 (0.722–0.817)  | 0.330 (0.254–0.432)  | 0.199 (0.185–0.215)  |
-| XGBoost                        | **0.782** (0.724–0.830) | **0.424** (0.332–0.528) | **0.157** (0.147–0.166) |
-| LSTM (raw sequences)           | 0.752 (0.693–0.807)  | 0.348 (0.267–0.466)  | 0.190 (0.179–0.200)  |
-| MedGemma 4B + LoRA             | _training_           | _training_           | _training_           |
+| Model                          | AUROC                   | AUPRC                   | Brier ↓                 | ECE (10-bin) ↓ |
+| ------------------------------ | ----------------------- | ----------------------- | ----------------------- | -------------- |
+| Logistic Regression            | 0.770 (0.722–0.817)     | 0.330 (0.254–0.432)     | 0.199 (0.185–0.215)     | 0.286          |
+| XGBoost                        | **0.782** (0.724–0.830) | **0.424** (0.332–0.528) | **0.157** (0.147–0.166) | **0.234**      |
+| LSTM (raw sequences)           | 0.719 (0.653–0.776)     | 0.322 (0.243–0.447)     | 0.213 (0.197–0.227)     | 0.286          |
+| MedGemma 4B + LoRA             | 0.777 (0.721–0.828)     | 0.410 (0.311–0.519)     | 0.190 (0.177–0.202)     | 0.286          |
 
-**Observations.** XGBoost leads on every metric, consistent with the
-well-known strength of gradient-boosted trees on aggregated clinical
-features. The LSTM underperforms the simpler tabular baselines — at this
-cohort size (~3,000 training patients with sparse measurements) the
-sequence model does not yet have enough data to outpace aggregated
-features. The headroom between logistic regression and XGBoost is modest
-(AUROC 0.770 → 0.782), suggesting a substantial fraction of the
-predictive signal in this dataset is linear; XGBoost's gain shows up more
-clearly on AUPRC and Brier, indicating better-calibrated probabilities
-for the minority (mortality) class.
+![Calibration comparison across all four baselines](outputs/calibration_comparison.png)
+
+### Observations
+
+**XGBoost leads across every metric.** A well-tuned gradient-boosted tree
+on aggregated clinical features wins on discrimination (AUROC, AUPRC),
+sharpness (Brier), *and* calibration (ECE). This is the textbook outcome
+for tabular clinical data at modest cohort sizes, and matches the
+published pattern in PhysioNet 2012 and similar ICU benchmarks.
+
+**MedGemma 4B + LoRA is competitive on discrimination but not the leader.**
+Test AUROC 0.777 vs XGBoost's 0.782 is statistically indistinguishable
+given the bootstrap CIs, and its AUPRC (0.410) is the second-best of the
+four. The LLM also halved the Brier gap to XGBoost compared with an
+earlier shorter run, suggesting it benefits from full training rather
+than under-training. **It still does not beat XGBoost on this cohort
+size**, which is itself a useful finding — a 4B domain-pretrained LLM
+with parameter-efficient fine-tuning matches but does not outperform a
+strong tree baseline on ~3,000 training patients with sparse features.
+
+**The LSTM underperforms simpler tabular baselines.** With limited
+training data and sparse measurements, the sequence model has more
+parameters to fit than the signal supports. AUROC 0.719 trails both
+logistic regression (0.770) and XGBoost (0.782). This is consistent with
+prior published comparisons on PhysioNet 2012 — sequence models tend not
+to repay their architectural overhead at this scale.
+
+**Calibration is uniformly poor across three of four models.** ECE
+clusters at ~0.286 for logreg, LSTM, and MedGemma, while XGBoost achieves
+0.234. The clustering at 0.286 is partly an artefact of small test size
+(n = 600 with 14% mortality leaves few patients per probability bin), but
+it also signals that none of these models produces well-calibrated
+probabilities out of the box. **The natural next step is post-hoc
+calibration** (Platt scaling or isotonic regression fitted on the
+validation set) — a recognised, principled fix that closes calibration
+gaps without affecting ranking.
+
+**Headline finding.** On PhysioNet 2012 Set A, XGBoost is the
+strongest baseline by every metric. A medical-domain 4B LLM with LoRA
+matches it on discrimination but not calibration. The right engineering
+priority for a clinical deployment is post-hoc calibration of the
+probability outputs, not architectural complexity.
 
 MIMIC-IV is supported as an optional external validation cohort for users
 with credentialed access.
 
-Bootstrap 95% CIs and calibration plots are reported in [`docs/results.md`](docs/results.md).
+Full per-model reliability diagrams and reproducibility commands are in
+[`docs/results.md`](docs/results.md).
 
 ## Quick start
 
