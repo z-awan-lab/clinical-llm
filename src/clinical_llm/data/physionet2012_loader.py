@@ -74,25 +74,41 @@ def _parse_time(s: str) -> pd.Timedelta:
 
 
 def _read_outcomes(raw_dir: Path) -> pd.DataFrame:
-    """Read Outcomes-a.txt and Outcomes-b.txt and concatenate."""
+    """Read available outcome files.
+
+    Set A's outcomes are publicly released and required. Set B's outcomes
+    were withheld by the PhysioNet challenge and may not be present;
+    we use them only if available.
+    """
     frames = []
     for name in ("Outcomes-a.txt", "Outcomes-b.txt"):
         path = raw_dir / name
         if not path.exists():
-            raise FileNotFoundError(f"{path} not found. Run physionet2012_downloader first.")
+            if name == "Outcomes-a.txt":
+                raise FileNotFoundError(
+                    f"{path} not found. Run physionet2012_downloader first."
+                )
+            continue  # set B outcomes are optional
         df = pd.read_csv(path)
         frames.append(df)
     return pd.concat(frames, ignore_index=True)
 
 
 def _patient_files(raw_dir: Path) -> list[Path]:
-    """Find all per-patient CSV files across set-a and set-b directories."""
+    """Find all per-patient CSV files across available set directories."""
     files: list[Path] = []
+    found_any = False
     for subset in ("set-a", "set-b"):
         subset_dir = raw_dir / subset
         if not subset_dir.exists():
-            raise FileNotFoundError(f"{subset_dir} not found. Did the tarball extract correctly?")
+            continue
+        found_any = True
         files.extend(sorted(subset_dir.glob("*.txt")))
+    if not found_any:
+        raise FileNotFoundError(
+            f"No set-a/ or set-b/ subdirectory in {raw_dir}. "
+            "Did the tarball extract correctly?"
+        )
     return files
 
 

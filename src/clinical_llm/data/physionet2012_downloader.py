@@ -34,9 +34,7 @@ from pathlib import Path
 BASE_URL = "https://archive.physionet.org/pn3/challenge/2012"
 FILES = {
     "set-a.tar.gz": f"{BASE_URL}/set-a.tar.gz",
-    "set-b.tar.gz": f"{BASE_URL}/set-b.tar.gz",
     "Outcomes-a.txt": f"{BASE_URL}/Outcomes-a.txt",
-    "Outcomes-b.txt": f"{BASE_URL}/Outcomes-b.txt",
 }
 
 
@@ -90,7 +88,7 @@ def main() -> None:
         download_file(url, raw_dir / name)
 
     print("\nExtracting record archives ...")
-    for archive_name in ("set-a.tar.gz", "set-b.tar.gz"):
+    for archive_name in ("set-a.tar.gz",):
         extract_tarball(raw_dir / archive_name, raw_dir)
 
     print("\nDone.")
